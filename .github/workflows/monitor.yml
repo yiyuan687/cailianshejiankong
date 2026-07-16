@@ -1,0 +1,65 @@
+name: 财联社电报监控
+
+# 该工作流通过 workflow_dispatch 触发（由 cron-job.org 每 3 分钟调用一次）
+on:
+  workflow_dispatch:
+    # 支持手动触发，也支持通过 GitHub API 远程触发
+    inputs:
+      reason:
+        description: '触发原因'
+        required: false
+        default: 'cron-job.org 定时触发'
+
+# 同一时间只允许一个实例运行，避免重复通知
+concurrency:
+  group: cls-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # 1. 检出代码
+      - name: 检出仓库代码
+        uses: actions/checkout@v4
+
+      # 2. 设置 Python 环境
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # 3. 恢复状态缓存（记录上次处理的电报时间戳，用于去重）
+      - name: 恢复状态缓存
+        uses: actions/cache@v4
+        with:
+          path: data/last_state.json
+          key: cls-monitor-state
+          restore-keys: |
+            cls-monitor-state
+
+      # 4. 运行监控脚本
+      - name: 运行财联社电报监控
+        env:
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+          STATE_FILE: data/last_state.json
+        run: python monitor.py
+
+      # 5. 保存状态缓存（更新后的时间戳会在下一步被缓存）
+      - name: 保存状态缓存
+        uses: actions/cache@v4
+        with:
+          path: data/last_state.json
+          key: cls-monitor-state
+
+      # 6. 将状态文件提交回仓库（双重保障，防止缓存丢失）
+      - name: 提交状态文件
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/last_state.json || true
+          git diff --staged --quiet || git commit -m "chore: 更新监控状态 [skip ci]" || true
+          git push || true

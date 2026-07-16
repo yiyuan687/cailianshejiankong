@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.env
+
+# 虚拟环境
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+
+# 临时文件
+tmp/
+temp/
+
+# WorkBuddy 内部文件
+.workbuddy/
+
+# 注意：data/last_state.json 不应被忽略（需提交到仓库以保持状态）
+# 但 .env 文件包含密钥，必须忽略
