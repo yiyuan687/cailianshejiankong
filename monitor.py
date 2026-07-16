@@ -265,15 +265,24 @@ def main():
         log("未获取到电报数据，结束本次监控")
         return
 
-    # 3. 过滤出新的电报（ctime 大于上次记录的时间戳）
+    # 3. 首次运行或状态丢失时，只初始化状态，不发送通知
+    #    避免把历史电报当成新消息重复推送
+    if last_ctime == 0:
+        newest_ctime = max(t.get("ctime", 0) for t in telegraphs)
+        save_state(newest_ctime)
+        log("首次运行，已记录当前最新时间戳，下次开始监控新消息（本次不发送通知）")
+        return
+
+    # 4. 过滤出新的电报（ctime 大于上次记录的时间戳）
     new_items = [t for t in telegraphs if t.get("ctime", 0) > last_ctime]
     log(f"新增电报: {len(new_items)} 条")
 
+    # 没有新消息就不发送钉钉通知
     if not new_items:
-        log("无新增电报，结束本次监控")
+        log("无新增电报，不发送通知")
         return
 
-    # 4. 关键词匹配
+    # 5. 关键词匹配
     matches = []
     for item in new_items:
         text = extract_text(item)
@@ -284,17 +293,17 @@ def main():
 
     log(f"关键词匹配: {len(matches)} 条")
 
-    # 5. 更新状态（取最新电报的 ctime）
+    # 6. 更新状态（取最新电报的 ctime）
     newest_ctime = max(t.get("ctime", 0) for t in telegraphs)
     save_state(newest_ctime)
 
-    # 6. 发送钉钉通知
+    # 7. 发送钉钉通知（仅当有匹配的新消息时才发送）
     if matches:
         log(f"发现 {len(matches)} 条匹配电报，准备发送钉钉通知...")
         message = build_message(matches)
         send_dingtalk(message)
     else:
-        log("本次无关键词匹配，不发送通知")
+        log("有新电报但无关键词匹配，不发送通知")
 
     log("监控完成")
 
